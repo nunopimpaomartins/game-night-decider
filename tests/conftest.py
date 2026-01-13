@@ -2,6 +2,9 @@ import logging
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from unittest.mock import AsyncMock, MagicMock
+from telegram import Update, Message, CallbackQuery
+from telegram.ext import ContextTypes
 
 from src.core import db
 from src.core.models import Base
@@ -41,12 +44,6 @@ async def setup_test_db():
     # Restore (optional, but good practice if tests shared process)
     db.engine = original_engine
     db.AsyncSessionLocal = original_sessionmaker
-
-
-from unittest.mock import AsyncMock, MagicMock
-
-from telegram import CallbackQuery, Message, Update
-from telegram.ext import ContextTypes
 
 
 @pytest.fixture

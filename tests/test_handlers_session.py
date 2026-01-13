@@ -415,7 +415,7 @@ async def test_addguest_success(mock_update, mock_context):
     # Verify DB
     async with db.AsyncSessionLocal() as session:
         # Check User created
-        stmt = select(User).where(User.telegram_name == "John Doe", User.is_guest == True)
+        stmt = select(User).where(User.telegram_name == "John Doe", User.is_guest.is_(True))
         guest = (await session.execute(stmt)).scalar_one_or_none()
         assert guest is not None
         assert guest.added_by_user_id == 111

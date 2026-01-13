@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 # Load env vars first
 load_dotenv()
 
+from src.core.db import init_db
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler
 
 from src.bot.handlers import (
@@ -29,7 +30,6 @@ from src.bot.handlers import (
     start_poll_callback,
     test_mode,
 )
-from src.core.db import init_db
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO

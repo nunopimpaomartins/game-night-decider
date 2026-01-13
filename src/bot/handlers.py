@@ -1345,7 +1345,7 @@ async def start_poll_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             .join(Collection)
             .where(
                 Collection.user_id.in_(player_ids),
-                Collection.is_excluded == False,
+                Collection.is_excluded.is_(False),
                 Game.min_players <= player_count,
                 Game.max_players >= player_count,
             )
@@ -1358,7 +1358,7 @@ async def start_poll_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Get games marked as priority by ANY player in session
         priority_query = (
             select(Collection.game_id)
-            .where(Collection.user_id.in_(player_ids), Collection.is_priority == True)
+            .where(Collection.user_id.in_(player_ids), Collection.is_priority.is_(True))
             .distinct()
         )
         priority_result = await session.execute(priority_query)
@@ -1409,7 +1409,7 @@ async def cancel_night_callback(update: Update, context: ContextTypes.DEFAULT_TY
             await session.execute(delete(SessionPlayer).where(SessionPlayer.session_id == chat_id))
 
             # Clean up orphaned guests
-            await session.execute(delete(User).where(User.is_guest == True))
+            await session.execute(delete(User).where(User.is_guest.is_(True)))
 
             # Mark session as inactive
             db_session.is_active = False
