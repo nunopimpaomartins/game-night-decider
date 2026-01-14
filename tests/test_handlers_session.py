@@ -633,16 +633,22 @@ async def test_poll_with_valid_games(mock_update, mock_context):
         session.add_all([u1, u2])
         await session.flush()
 
-        game = Game(
-            id=1, name="SharedGame", min_players=2, max_players=4, playing_time=60, complexity=2.5
+        # Need at least 2 games for a poll (Telegram requirement)
+        game1 = Game(
+            id=1, name="SharedGame1", min_players=2, max_players=4, playing_time=60, complexity=2.5
         )
-        session.add(game)
+        game2 = Game(
+            id=2, name="SharedGame2", min_players=2, max_players=4, playing_time=60, complexity=2.6
+        )
+        session.add_all([game1, game2])
         await session.flush()
 
-        # Both users own the same game
+        # Both users own both games
         c1 = Collection(user_id=111, game_id=1)
         c2 = Collection(user_id=222, game_id=1)
-        session.add_all([c1, c2])
+        c3 = Collection(user_id=111, game_id=2)
+        c4 = Collection(user_id=222, game_id=2)
+        session.add_all([c1, c2, c3, c4])
 
         sp1 = SessionPlayer(session_id=12345, user_id=111)
         sp2 = SessionPlayer(session_id=12345, user_id=222)
@@ -653,7 +659,7 @@ async def test_poll_with_valid_games(mock_update, mock_context):
 
     mock_context.bot.send_poll.assert_called_once()
     call_kwargs = mock_context.bot.send_poll.call_args[1]
-    assert "SharedGame" in call_kwargs["options"][0]
+    assert "SharedGame1" in call_kwargs["options"][0] or "SharedGame2" in call_kwargs["options"][0]
 
 
 @pytest.mark.asyncio

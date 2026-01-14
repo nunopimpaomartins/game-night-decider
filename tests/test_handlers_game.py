@@ -23,7 +23,11 @@ async def test_setbgg_no_args(mock_update, mock_context):
     mock_context.args = []
     await set_bgg(mock_update, mock_context)
 
-    mock_update.message.reply_text.assert_called_with("Usage: /setbgg <username>")
+    # Check that usage message was sent (now includes [force] option)
+    call_args = mock_update.message.reply_text.call_args[0][0]
+    assert "Usage: /setbgg" in call_args
+    assert "<username>" in call_args
+
 
 
 @pytest.mark.asyncio

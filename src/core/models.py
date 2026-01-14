@@ -81,6 +81,7 @@ class Session(Base):
 
     chat_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    settings_weighted: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
