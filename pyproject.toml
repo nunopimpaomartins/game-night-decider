@@ -20,6 +20,9 @@ dependencies = [
     "pydantic-settings>=2.7.0",
 ]
 
+[project.scripts]
+bot = "src.bot.main:main"
+
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 branch = "main"
