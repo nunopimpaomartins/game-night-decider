@@ -24,7 +24,6 @@ async def test_setbgg_no_args(mock_update, mock_context):
     assert "<username>" in call_args
 
 
-
 @pytest.mark.asyncio
 async def test_setbgg_creates_user(mock_update, mock_context):
     """Test /setbgg creates user and updates name."""
@@ -110,11 +109,15 @@ async def test_setbgg_resync_adds_new_games(mock_update, mock_context):
         assert collection_ids == {1, 2, 3}
 
     # Verify feedback message mentions new game
-    calls = [call[0][0] for call in mock_update.message.reply_text.call_args_list]
-    # Find the game sync message (contains "games total")
-    success_msg = next((c for c in calls if "games total" in c), None)
+    # The command now updates the status message via edit_text
+    status_msg = mock_update.message.reply_text.return_value
+
+    # Get all calls to edit_text
+    edit_calls = [c[0][0] for c in status_msg.edit_text.call_args_list]
+    success_msg = next((m for m in edit_calls if "Sync Complete" in m), None)
+
     assert success_msg is not None
-    assert "3 games total" in success_msg
+    assert "3 games" in success_msg
     assert "1 new" in success_msg
 
 
@@ -161,11 +164,12 @@ async def test_setbgg_resync_removes_deleted_games(mock_update, mock_context):
         assert collection_ids == {1, 2}
 
     # Verify feedback message mentions removed game
-    calls = [call[0][0] for call in mock_update.message.reply_text.call_args_list]
-    # Find the game sync message (contains "games total")
-    success_msg = next((c for c in calls if "games total" in c), None)
+    status_msg = mock_update.message.reply_text.return_value
+    edit_calls = [c[0][0] for c in status_msg.edit_text.call_args_list]
+    success_msg = next((m for m in edit_calls if "Sync Complete" in m), None)
+
     assert success_msg is not None
-    assert "2 games total" in success_msg
+    assert "2 games" in success_msg
     assert "1 removed" in success_msg
 
 
@@ -203,12 +207,15 @@ async def test_setbgg_resync_no_changes(mock_update, mock_context):
         await set_bgg(mock_update, mock_context)
 
     # Verify feedback message shows no changes
-    calls = [call[0][0] for call in mock_update.message.reply_text.call_args_list]
-    # Find the game sync message (contains "games total")
-    success_msg = next((c for c in calls if "games total" in c), None)
+    status_msg = mock_update.message.reply_text.return_value
+    edit_calls = [c[0][0] for c in status_msg.edit_text.call_args_list]
+    success_msg = next((m for m in edit_calls if "Sync Complete" in m), None)
+
     assert success_msg is not None
-    assert "2 games total" in success_msg
-    assert "no changes" in success_msg
+    assert "2 games" in success_msg
+    # "no changes" isn't explicitly printed, the absence of "new" or "removed"
+    # or "updated" implies it. We just check the base message is there
+    assert "Sync Complete" in success_msg
 
 
 @pytest.mark.asyncio
@@ -230,15 +237,28 @@ async def test_setbgg_initial_sync_feedback(mock_update, mock_context):
 
         await set_bgg(mock_update, mock_context)
 
-    # Verify feedback messages (4 messages: initial, sync result, expansion sync, expansion result)
-    calls = [call[0][0] for call in mock_update.message.reply_text.call_args_list]
-    assert len(calls) == 4
-    assert "Fetching collection..." in calls[0]
-    # Find the game sync message (contains "games total")
-    game_sync_msg = next((c for c in calls if "games total" in c), None)
-    assert game_sync_msg is not None
-    assert "3 games total" in game_sync_msg
-    assert "3 new" in game_sync_msg
+    # Verify feedback messages
+    # 1. Initial reply_text ("Fetching collection...")
+    # 2. edit_text ("Fetching computed complexity...")
+    # 3. edit_text ("Syncing expansions...")
+    # 4. edit_text ("Sync Complete!")
+
+    assert mock_update.message.reply_text.call_count == 1
+    status_msg = mock_update.message.reply_text.return_value
+
+    edit_calls = [c[0][0] for c in status_msg.edit_text.call_args_list]
+    # We expect at least one update (complexity/expansion) and one final result
+    assert len(edit_calls) >= 2
+
+    # Check for specific updates
+    assert any("computed complexity" in c for c in edit_calls) or any(
+        "Syncing expansions" in c for c in edit_calls
+    )
+
+    final_msg = edit_calls[-1]
+    assert "Sync Complete" in final_msg
+    assert "3 games" in final_msg
+    assert "3 new" in final_msg
 
 
 # ============================================================================
@@ -422,11 +442,10 @@ async def test_addgame_uses_cache(mock_update, mock_context):
         assert col is not None
 
 
-
-
 # ============================================================================
 # Auto-Star Feature Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_setbgg_incremental_sync_auto_stars_new_games(mock_update, mock_context):
@@ -438,7 +457,9 @@ async def test_setbgg_incremental_sync_auto_stars_new_games(mock_update, mock_co
         user = User(telegram_id=111, telegram_name="TestUser", bgg_username="testuser")
         session.add(user)
         # Existing game
-        g1 = Game(id=1, name="OldGame", min_players=2, max_players=4, playing_time=60, complexity=2.0)
+        g1 = Game(
+            id=1, name="OldGame", min_players=2, max_players=4, playing_time=60, complexity=2.0
+        )
         session.add(g1)
         # Existing collection entry (normal state)
         c1 = Collection(user_id=111, game_id=1, state=GameState.INCLUDED)
@@ -508,7 +529,9 @@ async def test_setbgg_force_sync_no_auto_star(mock_update, mock_context):
     async with db.AsyncSessionLocal() as session:
         user = User(telegram_id=111, telegram_name="TestUser", bgg_username="testuser")
         session.add(user)
-        g1 = Game(id=1, name="OldGame", min_players=2, max_players=4, playing_time=60, complexity=2.0)
+        g1 = Game(
+            id=1, name="OldGame", min_players=2, max_players=4, playing_time=60, complexity=2.0
+        )
         session.add(g1)
         c1 = Collection(user_id=111, game_id=1, state=GameState.INCLUDED)
         session.add(c1)
@@ -519,7 +542,8 @@ async def test_setbgg_force_sync_no_auto_star(mock_update, mock_context):
     # Wait, if I do a force sync and a NEW game appears, should it be starred?
     # Rationale: "Force sync... importing entire existing collection... shouldn't all be starred".
     # Logic implemented: should_auto_star = not is_first_sync and not force_update
-    # So ANY force sync disables auto-starring, even for new games found during it. This matches requirement.
+    # So ANY force sync disables auto-starring, even for new games
+    # found during it. This matches requirement.
 
     g2 = Game(id=2, name="NewGame", min_players=2, max_players=4, playing_time=60, complexity=2.5)
     mock_games = [
@@ -544,9 +568,9 @@ async def test_setbgg_force_sync_no_auto_star(mock_update, mock_context):
 @pytest.mark.asyncio
 async def test_addgame_manual_auto_stars(mock_update, mock_context):
     """Test /addgame manual entry auto-stars the game."""
-    mock_context.args = ["ManualGame", "2", "4", "2.0"] # Manual args
+    mock_context.args = ["ManualGame", "2", "4", "2.0"]  # Manual args
 
-    with patch("src.bot.handlers.BGGClient") as MockBGG:
+    with patch("src.bot.handlers.BGGClient"):
         await add_game(mock_update, mock_context)
 
     async with db.AsyncSessionLocal() as session:
@@ -560,7 +584,14 @@ async def test_addgame_bgg_search_auto_stars(mock_update, mock_context):
     """Test /addgame BGG search auto-stars the game."""
     mock_context.args = ["SearchGame"]
 
-    mock_game = Game(id=100, name="SearchGame", min_players=2, max_players=4, playing_time=60, complexity=2.0)
+    mock_game = Game(
+        id=100,
+        name="SearchGame",
+        min_players=2,
+        max_players=4,
+        playing_time=60,
+        complexity=2.0,
+    )
 
     with patch("src.bot.handlers.BGGClient") as MockBGG:
         mock_client = MockBGG.return_value

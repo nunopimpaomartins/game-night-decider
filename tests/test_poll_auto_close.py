@@ -1,4 +1,3 @@
-
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -6,7 +5,16 @@ from sqlalchemy import func, select
 
 from src.bot.handlers import create_poll, receive_poll_answer
 from src.core import db
-from src.core.models import Collection, Game, GameNightPoll, PollVote, Session, SessionPlayer, User
+from src.core.models import (
+    Collection,
+    Game,
+    GameNightPoll,
+    PollType,
+    PollVote,
+    Session,
+    SessionPlayer,
+    User,
+)
 
 
 @pytest.mark.asyncio
@@ -24,11 +32,14 @@ async def test_poll_auto_close(mock_update, mock_context):
         session.add_all([u1, u2])
 
         # Create Games (need at least 2 for a poll - Telegram requirement)
-        g1 = Game(
-            id=1, name="Catan", min_players=2, max_players=4, playing_time=60, complexity=2.0
-        )
+        g1 = Game(id=1, name="Catan", min_players=2, max_players=4, playing_time=60, complexity=2.0)
         g2 = Game(
-            id=2, name="Ticket to Ride", min_players=2, max_players=5, playing_time=60, complexity=2.0
+            id=2,
+            name="Ticket to Ride",
+            min_players=2,
+            max_players=5,
+            playing_time=60,
+            complexity=2.0,
         )
         session.add_all([g1, g2])
 
@@ -39,8 +50,8 @@ async def test_poll_auto_close(mock_update, mock_context):
         c4 = Collection(user_id=222, game_id=2)
         session.add_all([c1, c2, c3, c4])
 
-        # Create Session
-        s = Session(chat_id=chat_id, is_active=True)
+        # Create Session (use native poll mode)
+        s = Session(chat_id=chat_id, is_active=True, poll_type=PollType.NATIVE)
         session.add(s)
 
         # Add Players to Session
@@ -76,7 +87,7 @@ async def test_poll_auto_close(mock_update, mock_context):
     mock_update.poll_answer.poll_id = poll_id
     mock_update.poll_answer.user.id = 111
     mock_update.poll_answer.user.first_name = "User1"
-    mock_update.poll_answer.option_ids = [0] # Voted for option 0
+    mock_update.poll_answer.option_ids = [0]  # Voted for option 0
 
     # Prepare stop_poll mock (should NOT be called yet)
     mock_context.bot.stop_poll = AsyncMock()
@@ -85,7 +96,9 @@ async def test_poll_auto_close(mock_update, mock_context):
 
     # Verify Vote saved
     async with db.AsyncSessionLocal() as session:
-        voters = await session.scalar(select(func.count(PollVote.user_id)).where(PollVote.poll_id == poll_id))
+        voters = await session.scalar(
+            select(func.count(PollVote.user_id)).where(PollVote.poll_id == poll_id)
+        )
         assert voters == 1
 
     # Verify stop_poll NOT called
@@ -108,7 +121,9 @@ async def test_poll_auto_close(mock_update, mock_context):
 
     # Verify Vote saved
     async with db.AsyncSessionLocal() as session:
-        voters = await session.scalar(select(func.count(PollVote.user_id)).where(PollVote.poll_id == poll_id))
+        voters = await session.scalar(
+            select(func.count(PollVote.user_id)).where(PollVote.poll_id == poll_id)
+        )
         assert voters == 2
 
     # Verify stop_poll CALLED
@@ -117,5 +132,5 @@ async def test_poll_auto_close(mock_update, mock_context):
     # Verify Winner Announcement
     mock_context.bot.send_message.assert_called()
     args = mock_context.bot.send_message.call_args[1]
-    assert "Winner" in args['text'] or "winner" in args['text']
-    assert "Catan" in args['text']
+    assert "Winner" in args["text"] or "winner" in args["text"]
+    assert "Catan" in args["text"]

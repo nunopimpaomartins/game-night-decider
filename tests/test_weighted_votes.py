@@ -1,4 +1,3 @@
-
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -31,8 +30,17 @@ async def test_weighted_voting_logic(mock_update, mock_context):
         session.add_all([u1, u2])
 
         # Create Games
-        g1 = Game(id=1, name="Normal Game", min_players=2, max_players=4, playing_time=60, complexity=2.0)
-        g2 = Game(id=2, name="Starred Game", min_players=2, max_players=4, playing_time=60, complexity=2.0)
+        g1 = Game(
+            id=1, name="Normal Game", min_players=2, max_players=4, playing_time=60, complexity=2.0
+        )
+        g2 = Game(
+            id=2,
+            name="Starred Game",
+            min_players=2,
+            max_players=4,
+            playing_time=60,
+            complexity=2.0,
+        )
         session.add_all([g1, g2])
 
         # Collections - Only User1 starred Game2
@@ -66,7 +74,7 @@ async def test_weighted_voting_logic(mock_update, mock_context):
     mock_update.poll_answer.poll_id = poll_id
     mock_update.poll_answer.user.id = 111
     mock_update.poll_answer.user.first_name = "User1"
-    mock_update.poll_answer.option_ids = [0] # Normal Game
+    mock_update.poll_answer.option_ids = [0]  # Normal Game
 
     mock_context.bot.stop_poll = AsyncMock()
 
@@ -75,7 +83,7 @@ async def test_weighted_voting_logic(mock_update, mock_context):
     # User 2 Votes for Starred Game
     mock_update.poll_answer.user.id = 222
     mock_update.poll_answer.user.first_name = "User2"
-    mock_update.poll_answer.option_ids = [1] # Starred Game
+    mock_update.poll_answer.option_ids = [1]  # Starred Game
 
     mock_poll_data = MagicMock()
     opt_normal = MagicMock()
@@ -94,7 +102,7 @@ async def test_weighted_voting_logic(mock_update, mock_context):
     # Verify Winner
     mock_context.bot.send_message.assert_called()
     args = mock_context.bot.send_message.call_args[1]
-    text = args['text']
+    text = args["text"]
 
     assert "Starred Game" in text
     assert "Normal Game" not in text
@@ -118,8 +126,22 @@ async def test_per_user_star_boost(mock_update, mock_context):
         u3 = User(telegram_id=303, telegram_name="Player3")
         session.add_all([u1, u2, u3])
 
-        g1 = Game(id=101, name="Normal Game", min_players=2, max_players=4, playing_time=60, complexity=2.0)
-        g2 = Game(id=102, name="Triple Star", min_players=2, max_players=4, playing_time=60, complexity=2.0)
+        g1 = Game(
+            id=101,
+            name="Normal Game",
+            min_players=2,
+            max_players=4,
+            playing_time=60,
+            complexity=2.0,
+        )
+        g2 = Game(
+            id=102,
+            name="Triple Star",
+            min_players=2,
+            max_players=4,
+            playing_time=60,
+            complexity=2.0,
+        )
         session.add_all([g1, g2])
 
         # All 3 players star Game2
@@ -185,7 +207,7 @@ async def test_per_user_star_boost(mock_update, mock_context):
     # Verify Winner: Triple Star should win with 1 + 1.5 = 2.5 vs 2.0
     mock_context.bot.send_message.assert_called()
     args = mock_context.bot.send_message.call_args[1]
-    text = args['text']
+    text = args["text"]
 
     assert "Triple Star" in text
     assert "Normal Game" not in text

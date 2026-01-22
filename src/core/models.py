@@ -63,8 +63,23 @@ class GameState:
     """Game collection states for the 3-state cycle."""
 
     INCLUDED = 0  # ⬜ Normal game, available for polls
-    STARRED = 1   # 🌟 Priority game, gets boost in weighted voting
+    STARRED = 1  # 🌟 Priority game, gets boost in weighted voting
     EXCLUDED = 2  # ❌ Excluded from polls
+
+
+class PollType:
+    """Poll types for the session."""
+
+    CUSTOM = 0  # Single interactive message with buttons
+    NATIVE = 1  # Standard Telegram polls (split if >10 games)
+
+
+class VoteLimit:
+    """Vote limit options for polls."""
+
+    AUTO = -1  # Dynamic: max(3, ceil(log2(game_count)))
+    UNLIMITED = 0  # Current behavior: one vote per game
+    # Static values (3, 5, 7, 10) are stored directly as integers
 
 
 class Collection(Base):
@@ -95,8 +110,12 @@ class Session(Base):
 
     chat_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    settings_weighted: Mapped[bool] = mapped_column(Boolean, default=False)
+    settings_weighted: Mapped[bool] = mapped_column(Boolean, default=True)
+    poll_type: Mapped[int] = mapped_column(Integer, default=PollType.CUSTOM)
+    message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    hide_voters: Mapped[bool] = mapped_column(Boolean, default=False)
+    vote_limit: Mapped[int] = mapped_column(Integer, default=-1)  # VoteLimit.AUTO
 
     # Relationships
     players: Mapped[list["SessionPlayer"]] = relationship(
@@ -139,10 +158,12 @@ class PollVote(Base):
 
     __tablename__ = "poll_votes"
 
-    poll_id: Mapped[str] = mapped_column(
-        ForeignKey("game_night_polls.poll_id"), primary_key=True
-    )
+    poll_id: Mapped[str] = mapped_column(ForeignKey("game_night_polls.poll_id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # game_id is nullable: NULL for native polls, set for custom polls
+    game_id: Mapped[int | None] = mapped_column(
+        BigInteger, primary_key=True, nullable=True, default=None
+    )
     user_name: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Relationships
